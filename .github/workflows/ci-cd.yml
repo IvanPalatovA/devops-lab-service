@@ -43,13 +43,9 @@ jobs:
               'set -e
                cd /home/ivan/devops-lab-service
                git pull --ff-only origin master
-               if docker compose version >/dev/null 2>&1; then
-                 if docker compose version >/dev/null 2>&1; then
+               if command -v docker-compose >/dev/null 2>&1; then
+                 docker-compose up -d --build
+               else
                  docker compose up -d --build
-               else
-                 docker-compose up -d --build
-               fi
-               else
-                 docker-compose up -d --build
                fi
                docker ps'
