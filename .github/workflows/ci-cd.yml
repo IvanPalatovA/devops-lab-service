@@ -1,0 +1,47 @@
+name: CI/CD Docker Build and SSH Deploy
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-test-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t devops-lab-service-ci:${{ github.sha }} .
+
+      - name: Run container smoke test
+        run: |
+          docker rm -f devops-ci-test || true
+          docker run -d --name devops-ci-test -p 8001:8000 devops-lab-service-ci:${{ github.sha }}
+          sleep 5
+          curl -f http://127.0.0.1:8001/
+          curl -f http://127.0.0.1:8001/tasks
+          docker rm -f devops-ci-test
+
+      - name: Prepare SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy to virtual machine via SSH
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -p "${{ secrets.SSH_PORT }}" \
+              "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+              'set -e
+               cd /home/ivan/devops-lab-service
+               git pull --ff-only origin master
+               docker compose up -d --build
+               docker ps'
