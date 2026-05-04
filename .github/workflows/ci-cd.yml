@@ -31,21 +31,23 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KEY_B64 }}" | base64 -d > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Deploy to virtual machine via SSH
         run: |
           ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
               -p "${{ secrets.SSH_PORT }}" \
               "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
               'set -e
                cd /home/ivan/devops-lab-service
                git pull --ff-only origin master
-               if command -v docker-compose >/dev/null 2>&1; then
-                 docker-compose up -d --build
-               else
+               if docker compose version >/dev/null 2>&1; then
                  docker compose up -d --build
+               else
+                 docker-compose up -d --build
                fi
                docker ps'
